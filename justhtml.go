@@ -1,14 +1,19 @@
 package justhtml
 
 import (
+	"bufio"
 	"fmt"
+	"html/template"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 const (
 	templatesDir = "templates"
 	pagesDir     = "pages"
+	buildDir     = "www"
 )
 
 // CreateSite initializes a JustHTML site in the current directory. It returns
@@ -96,6 +101,62 @@ func CreateNewPage(name string) error {
 		return fmt.Errorf("Unable to write to new file: %s\n", err)
 	}
 
+	return nil
+}
+
+// BuildSite compiles the templates and pages in the current project directory
+// into a full static site.
+func BuildSite() error {
+	start := time.Now()
+
+	// Validate that we're in the correct place with everything we need.
+	if _, err := os.Stat(templatesDir); err != nil {
+		return fmt.Errorf("FAILED. No templates directory found.")
+	}
+	if _, err := os.Stat(pagesDir); err != nil {
+		return fmt.Errorf("FAILED. No pages directory found.")
+	}
+
+	// Create build destination
+	fmt.Printf("Creating build directory...")
+	err := os.Mkdir(buildDir, 0700)
+	if err != nil {
+		if strings.Contains(err.Error(), "exists") {
+			fmt.Printf("SKIP: already exists\n")
+		} else {
+			return fmt.Errorf("Unable to create %s/: %s\n", buildDir, err)
+		}
+	} else {
+		fmt.Printf("Done\n")
+	}
+
+	// Generate pages
+	filepath.Walk(pagesDir, func(path string, i os.FileInfo, err error) error {
+		if !i.IsDir() && !strings.HasPrefix(i.Name(), ".") {
+			fmt.Printf("Opening page %s...", i.Name())
+			f, err := openFile(buildDir, i.Name())
+			if err != nil {
+				err = fmt.Errorf("SKIP: unable to open file in build directory (%s).", buildDir)
+				fmt.Printf("%s\n", err)
+				return err
+			}
+			defer f.Close()
+
+			w := bufio.NewWriter(f)
+			template, err := template.ParseFiles(filepath.Join(pagesDir, i.Name()), filepath.Join(templatesDir, "header.tmpl"), filepath.Join(templatesDir, "footer.tmpl"))
+			if err != nil {
+				fmt.Printf("SKIP: %s\n", err)
+				return err
+			}
+			template.ExecuteTemplate(w, i.Name()[:strings.LastIndex(i.Name(), ".")], nil)
+			w.Flush()
+			fmt.Println("Done")
+		}
+
+		return nil
+	})
+
+	fmt.Printf("Build finished in %s\n", time.Since(start))
 	return nil
 }
 
