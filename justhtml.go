@@ -24,12 +24,12 @@ func CreateSite() error {
 	// Create directories
 	err := os.Mkdir(templatesDir, 0700)
 	if err != nil {
-		return fmt.Errorf("Unable to create templates/: %s\n", err)
+		return fmt.Errorf("Unable to create %s/: %s\n", templatesDir, err)
 	}
 
 	err = os.Mkdir(pagesDir, 0700)
 	if err != nil {
-		return fmt.Errorf("Unable to create pages/: %s\n", err)
+		return fmt.Errorf("Unable to create %s/: %s\n", pagesDir, err)
 	}
 
 	// Create base templates
